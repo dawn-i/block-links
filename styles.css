@@ -1,0 +1,78 @@
+.dxi-badge {
+	background: var(--background-secondary);
+	border-radius: var(--radius-m);
+	color: var(--text-accent);
+	/* color: var(--text-muted); */
+	cursor: pointer;
+	display: inline-block;
+	font-size: calc(var(--font-preferred-size) * 0.65);
+	font-weight: calc(var(--font-weight) - 100);
+	/* font-weight: 500; */
+	margin-left: 2ch;
+	padding: 0.12ch 0.75ch;
+	user-select: none;
+	vertical-align: super;
+}
+
+.dxi-badge-active {
+	background: color-mix(in oklch, var(--color-accent) 25%, transparent);
+}
+
+.dxi-badge:hover {
+	background: var(--color-accent);
+	color: var(--text-on-accent);
+}
+
+.dxi-popover {
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-s);
+	max-height: 320px;
+	overflow-y: auto;
+	padding: var(--size-4-2);
+	position: absolute;
+	width: 340px;
+	z-index: var(--layer-popover);
+}
+
+.dxi-popover-header {
+	align-items: center;
+	display: flex;
+	/* gap: var(--size-4-2); */
+	justify-content: space-between;
+}
+
+.dxi-popover-title {
+	font-weight: var(--font-semibold);
+}
+
+.dxi-popover-subtitle {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-4-2);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dxi-popover-row {
+	border-radius: var(--radius-l);
+	cursor: pointer;
+	padding: var(--size-4-1) var(--size-4-4);
+}
+
+.dxi-popover-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.dxi-popover-note {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-medium);
+}
+
+.dxi-popover-context {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	word-break: break-word;
+}

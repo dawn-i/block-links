@@ -1,0 +1,9 @@
+{
+  "id": "block-links",
+  "name": "Who dat link?",
+  "version": "0.0.1",
+  "minAppVersion": "1.14.4",
+  "description": "See and rename links to headings and blocks, so you don't break them by typing to rename.",
+  "author": "dawni",
+  "isDesktopOnly": true
+}
