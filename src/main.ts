@@ -44,7 +44,7 @@ export default class BlockLinksPlugin extends Plugin {
   }
 
   onunload() {
-    // Editor extensions and events registered through the plugin are removed by Obsidian; nothing else to clean up.
+    // Obsidian removes editor extensions and events registered through the plugin; nothing else to clean up.
   }
 
   private refreshEditors() {

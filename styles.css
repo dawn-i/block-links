@@ -39,7 +39,7 @@
 .dxi-popover-header {
 	align-items: center;
 	display: flex;
-	/* gap: var(--size-4-2); */
+	gap: var(--size-4-2);
 	justify-content: space-between;
 }
 
@@ -56,19 +56,60 @@
 	white-space: nowrap;
 }
 
-.dxi-popover-row {
-	border-radius: var(--radius-l);
+.dxi-popover-note {
+	align-items: center;
 	cursor: pointer;
-	padding: var(--size-4-1) var(--size-4-4);
+	display: flex;
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-medium);
+	gap: var(--size-4-1);
+	justify-content: space-between;
+	list-style: none;
+	padding: var(--size-4-1) var(--size-4-2) var(--size-4-1) 0;
+}
+
+.dxi-popover-note:hover {
+	background-color: var(--nav-item-background-hover);
+	border-radius: var(--nav-item-radius);
+	color: var(--nav-item-color-hover);
+}
+
+.dxi-popover-note::-webkit-details-marker {
+	display: none;
+}
+
+.dxi-popover-chevron {
+	color: var(--nav-collapse-icon-color);
+	display: inline-flex;
+}
+
+.dxi-popover-chevron .svg-icon {
+	height: var(--icon-xs);
+	width: var(--icon-xs);
+}
+
+.dxi-popover-group:not([open]) .dxi-popover-chevron {
+	transform: rotate(-90deg);
+}
+
+.dxi-popover-name {
+	flex: 1;
+}
+
+.dxi-popover-count {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	font-weight: normal;
+}
+
+.dxi-popover-row {
+	border-radius: var(--nav-item-radius);
+	cursor: pointer;
+	padding: var(--size-4-1) var(--size-4-5);
 }
 
 .dxi-popover-row:hover {
 	background: var(--background-modifier-hover);
-}
-
-.dxi-popover-note {
-	font-size: var(--font-ui-medium);
-	font-weight: var(--font-medium);
 }
 
 .dxi-popover-context {

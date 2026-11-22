@@ -5,6 +5,8 @@ export interface IncomingRef {
   sourcePath: string;
   /** 0-based line in the source file (0 for frontmatter links). */
   line: number;
+  /** 0-based column in the source line, to order links that share a line. */
+  col: number;
   /** The link text as written, e.g. `[[note#heading]]`. */
   original: string;
   /** Set when the link lives in a frontmatter property (its name). */
@@ -16,6 +18,7 @@ interface RawLink {
   /** Includes the leading `#`, e.g. `#heading` or `#^block-id`. */
   subpath: string;
   line: number;
+  col: number;
   original: string;
   frontmatterKey?: string;
 }
@@ -78,6 +81,7 @@ export class LinkIndex {
           list.push({
             sourcePath,
             line: rl.line,
+            col: rl.col,
             original: rl.original,
             frontmatterKey: rl.frontmatterKey,
           });
@@ -94,21 +98,21 @@ export class LinkIndex {
     if (!cache) return;
 
     const found: RawLink[] = [];
-    const add = (link: string, original: string, line: number, frontmatterKey?: string) => {
+    const add = (link: string, original: string, line: number, col: number, frontmatterKey?: string) => {
       const { path, subpath } = parseLinktext(link);
       if (!subpath) return; // plain note link, not a heading/block link
       const target = path
         ? this.app.metadataCache.getFirstLinkpathDest(path, file.path)
         : file; // `[[#heading]]` -> this note
       if (!target) return;
-      found.push({ targetPath: target.path, subpath, line, original, frontmatterKey });
+      found.push({ targetPath: target.path, subpath, line, col, original, frontmatterKey });
     };
 
     for (const l of [...(cache.links ?? []), ...(cache.embeds ?? [])]) {
-      add(l.link, l.original, l.position.start.line);
+      add(l.link, l.original, l.position.start.line, l.position.start.col);
     }
     for (const l of cache.frontmatterLinks ?? []) {
-      add(l.link, l.original, 0, l.key);
+      add(l.link, l.original, 0, 0, l.key);
     }
 
     this.raw.set(file.path, found);
