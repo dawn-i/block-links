@@ -1,13 +1,13 @@
 .dxi-badge {
-	background-color: var(--background-secondary);
+	/* background-color: var(--background-secondary); */
+	background-color: var(--background-primary-alt);
 	border-radius: var(--radius-m);
-	color: var(--text-accent);
-	/* color: var(--text-muted); */
+	/* color: var(--text-accent); */
+	color: var(--text-faint);
 	cursor: pointer;
 	display: inline-block;
 	font-size: calc(var(--font-preferred-size) * 0.65);
 	font-weight: calc(var(--font-weight) - 100);
-	/* font-weight: 500; */
 	margin-left: 2ch;
 	padding: 0.12ch 0.75ch;
 	user-select: none;
@@ -16,6 +16,7 @@
 
 .dxi-badge-active {
 	background-color: color-mix(in oklch, var(--color-accent) 25%, transparent);
+	color: color-mix(in oklch, var(--text-normal) 75%, var(--text-on-accent));
 }
 
 .dxi-badge:hover {
@@ -52,8 +53,8 @@
 }
 
 .dxi-popover-rename {
-	/* border-radius: var(--dxi-popover-radius); */
-	border-radius: var(--button-radius);
+	/* border-radius: var(--button-radius); */
+	border-radius: var(--dxi-popover-radius);
 }
 
 .dxi-popover-subtitle {
@@ -66,12 +67,21 @@
 }
 
 .dxi-popover-list {
-	display: grid;
-	row-gap: var(--dxi-popover-spacing);
+	/* display: grid; */
+	/* row-gap: calc(0.5 * var(--dxi-popover-spacing)); */
+}
+
+.dxi-popover-group:is([open]) .dxi-popover-note:not(:hover) {
+	/* background-color: var(--nav-item-background-hover); */
 }
 
 .dxi-popover-group:not([open]) .dxi-popover-chevron {
 	transform: rotate(-90deg);
+}
+
+.dxi-popover-group:not([open]) .dxi-popover-note {
+	border-bottom-left-radius: var(--dxi-popover-radius);
+	border-bottom-right-radius: var(--dxi-popover-radius);
 }
 
 .dxi-popover-note {
@@ -85,25 +95,12 @@
 	gap: var(--size-4-1);
 	justify-content: space-between;
 	list-style: none;
-	padding: var(--size-4-1) var(--size-4-2) var(--size-4-1) 0;
-}
-
-.dxi-popover-group:is([open]) .dxi-popover-note {
-	/* background-color: var(--nav-item-background-hover); */
-}
-
-.dxi-popover-group:not([open]) .dxi-popover-note {
-	border-bottom-left-radius: var(--dxi-popover-radius);
-	border-bottom-right-radius: var(--dxi-popover-radius);
+	padding: calc( 0.75 * var(--dxi-popover-spacing) ) calc( 0.5 * var(--dxi-popover-spacing) ) calc( 0.75 * var(--dxi-popover-spacing) ) 0;
 }
 
 .dxi-popover-note:hover {
-	background-color: var(--nav-item-background-hover);
+	background-color: var(--text-selection);
 	color: var(--nav-item-color-hover);
-}
-
-.dxi-popover-note::-webkit-details-marker {
-	/* display: none; */
 }
 
 .dxi-popover-chevron {
