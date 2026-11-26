@@ -1,4 +1,4 @@
-import { App, TFile, setIcon } from "obsidian";
+import { App, Keymap, Scope, TFile, setIcon } from "obsidian";
 import { IncomingRef } from "./linkIndex";
 
 export interface PopoverOptions {
@@ -64,6 +64,9 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       a.file.path.localeCompare(b.file.path)
   );
 
+  // Each row's follow action, so Enter can pass along its modifier keys just like a click does.
+  const followers = new Map<HTMLElement, (e: MouseEvent | KeyboardEvent) => void>();
+
   for (const { file, refs } of sorted) {
     refs.sort((a, b) => a.line - b.line || a.col - b.col);
 
@@ -83,11 +86,22 @@ export async function showPopover(app: App, opts: PopoverOptions) {
         cls: "dxi-popover-context",
         text: isFrontmatter ? `${ref.frontmatterKey}: ${ref.original}` : ref.original,
       });
-      row.addEventListener("click", () => {
+      const follow = (e: MouseEvent | KeyboardEvent) => {
         closePopover();
+        // Same as Obsidian's modifier-key rules when opening links: Ctrl new tab, Ctrl+Alt split, Ctrl+Alt+Shift new window, middle click new tab.
         app.workspace
-          .getLeaf(false)
+          .getLeaf(Keymap.isModEvent(e))
           .openFile(file, isFrontmatter ? undefined : { eState: { line: ref.line } });
+      };
+      followers.set(row, follow);
+      row.addEventListener("click", follow);
+      row.addEventListener("mousedown", (e) => {
+        if (e.button === 1) e.preventDefault();
+      });
+      row.addEventListener("auxclick", (e) => {
+        if (e.button !== 1) return;
+        e.preventDefault();
+        follow(e);
       });
 
       // Fill in the surrounding line asynchronously. Because frontmatter links have no meaningful line, their context is the property name and link text.
@@ -114,7 +128,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       el.querySelectorAll<HTMLElement>(".dxi-popover-rename, summary, details[open] > .dxi-popover-row")
     );
   el.addEventListener("keydown", (e) => {
-    // The first key press after a click only reveals the (already focused) first note, rather than moving on from it.
+    // The first key press after a click reveals the already focused first note rather than moving on from it.
     const reveal = el.classList.contains("dxi-popover-pointer");
     el.classList.remove("dxi-popover-pointer");
     const target = e.target as HTMLElement;
@@ -149,7 +163,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       case "Enter":
       case " ":
         if (!isRow) return;
-        target.click();
+        followers.get(target)?.(e);
         break;
       default:
         return;
@@ -158,6 +172,19 @@ export async function showPopover(app: App, opts: PopoverOptions) {
     next?.focus();
   });
   (el.querySelector<HTMLElement>("summary") ?? el).focus();
+
+  // Pushes a `Scope` (imitating Obsidian's modals) to allow the popover to act on Ctrl+Enter and Ctrl+Alt+Enter, otherwise Obsidian swallows the hotkeys before the popover sees them.
+  const scope = new Scope(app.scope);
+  const followFocused = (e: KeyboardEvent) => {
+    const follow = followers.get(document.activeElement as HTMLElement);
+    if (!follow) return true;
+    follow(e);
+    return false;
+  };
+  for (const mods of [["Mod"], ["Mod", "Alt"], ["Mod", "Alt", "Shift"]] as const) {
+    scope.register([...mods], "Enter", followFocused);
+  }
+  app.keymap.pushScope(scope);
 
   const onDown = (e: MouseEvent) => {
     if (!el.contains(e.target as Node)) closePopover();
@@ -173,6 +200,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
     document.addEventListener("keydown", onKey, true);
   }, 0);
   cleanup = () => {
+    app.keymap.popScope(scope);
     document.removeEventListener("mousedown", onDown, true);
     document.removeEventListener("keydown", onKey, true);
   };
