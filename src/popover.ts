@@ -78,7 +78,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
     summary.createSpan({ cls: "dxi-popover-count", text: String(refs.length) });
 
     for (const ref of refs) {
-      const row = group.createDiv({ cls: "dxi-popover-row" });
+      const row = group.createDiv({ cls: "dxi-popover-inlink" });
       row.tabIndex = 0;
       row.setAttribute("role", "link");
       const isFrontmatter = ref.frontmatterKey !== undefined;
@@ -125,7 +125,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   // Up and down arrows navigate among the Rename button, notes, and links; so do Tab and Shift+Tab. Left and right arrows collapse and expand notes; Home goes to first note; End goes to last link. Enter and Space select.
   const items = () =>
     Array.from(
-      el.querySelectorAll<HTMLElement>(".dxi-popover-rename, summary, details[open] > .dxi-popover-row")
+      el.querySelectorAll<HTMLElement>(".dxi-popover-rename, summary, details[open] > .dxi-popover-inlink")
     );
   el.addEventListener("keydown", (e) => {
     // The first key press after a click reveals the already focused first note rather than moving on from it.
@@ -135,7 +135,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
     const all = items();
     const i = all.indexOf(target);
     const first = el.querySelector<HTMLElement>("summary") ?? all[0];
-    const isRow = target.classList.contains("dxi-popover-row");
+    const isRow = target.classList.contains("dxi-popover-inlink");
     const isSummary = target.tagName === "SUMMARY";
     let next: HTMLElement | undefined;
     switch (e.key) {
@@ -173,7 +173,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   });
   (el.querySelector<HTMLElement>("summary") ?? el).focus();
 
-  // Pushes a `Scope` (imitating Obsidian's modals) to allow the popover to act on Ctrl+Enter and Ctrl+Alt+Enter, otherwise Obsidian swallows the hotkeys before the popover sees them.
+  // Push a `Scope` (imitating Obsidian's modals) to allow the popover to act on Ctrl+Enter and Ctrl+Alt+Enter, otherwise Obsidian swallows the hotkeys before the popover sees them.
   const scope = new Scope(app.scope);
   const followFocused = (e: KeyboardEvent) => {
     const follow = followers.get(document.activeElement as HTMLElement);
