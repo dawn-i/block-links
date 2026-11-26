@@ -87,7 +87,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
           .openFile(file, isFrontmatter ? undefined : { eState: { line: ref.line } });
       });
 
-      // Fill in the surrounding line asynchronously. Frontmatter links have no meaningful line, so their context is the property name and link text.
+      // Fill in the surrounding line asynchronously. Because frontmatter links have no meaningful line, their context is the property name and link text.
       if (!isFrontmatter) {
         app.vault.cachedRead(file).then((content) => {
           const line = content.split("\n")[ref.line]?.trim();
@@ -105,7 +105,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   el.style.top = `${rect.bottom + window.scrollY + 4}px`;
   el.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
 
-  // Arrow keys move between the Rename button, note headers and links. Left and right collapse and expand a note's group; Home jumps to the first note and End to the last link. Enter and Space follow a link; Tab works too.
+  // Up and down arrows navigate among the Rename button, notes, and links; so do Tab and Shift+Tab. Left and right arrows collapse and expand notes; Home goes to first note; End goes to last link. Enter and Space select.
   const items = () =>
     Array.from(
       el.querySelectorAll<HTMLElement>(".dxi-popover-rename, summary, details[open] > .dxi-popover-row")
