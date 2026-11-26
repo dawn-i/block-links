@@ -5,6 +5,8 @@ export interface PopoverOptions {
   anchor: HTMLElement;
   title: string;
   refs: IncomingRef[];
+  /** Opened by a mouse click: hide the keyboard focus highlight until a key is pressed. */
+  pointer?: boolean;
   onRename: () => void;
 }
 
@@ -28,6 +30,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   const el = document.createElement("div");
   el.className = "dxi-popover";
   el.tabIndex = -1;
+  if (opts.pointer) el.classList.add("dxi-popover-pointer");
   el.setAttribute("role", "dialog");
   el.setAttribute("aria-label", "Incoming links");
 
@@ -111,21 +114,25 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       el.querySelectorAll<HTMLElement>(".dxi-popover-rename, summary, details[open] > .dxi-popover-row")
     );
   el.addEventListener("keydown", (e) => {
+    // The first key press after a click only reveals the (already focused) first note, rather than moving on from it.
+    const reveal = el.classList.contains("dxi-popover-pointer");
+    el.classList.remove("dxi-popover-pointer");
     const target = e.target as HTMLElement;
     const all = items();
     const i = all.indexOf(target);
+    const first = el.querySelector<HTMLElement>("summary") ?? all[0];
     const isRow = target.classList.contains("dxi-popover-row");
     const isSummary = target.tagName === "SUMMARY";
     let next: HTMLElement | undefined;
     switch (e.key) {
       case "ArrowDown":
-        next = all[Math.min(i + 1, all.length - 1)];
+        next = reveal || i < 0 ? first : all[Math.min(i + 1, all.length - 1)];
         break;
       case "ArrowUp":
-        next = all[Math.max(i - 1, 0)];
+        next = reveal || i < 0 ? first : all[Math.max(i - 1, 0)];
         break;
       case "Home":
-        next = el.querySelector<HTMLElement>("summary") ?? all[0];
+        next = first;
         break;
       case "End":
         next = all[all.length - 1];

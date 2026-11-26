@@ -135,11 +135,15 @@
 	background-color: var(--text-selection);
 }
 
-.dxi-popover-note:focus-visible,
-.dxi-popover-row:focus-visible {
+.dxi-popover:not(.dxi-popover-pointer) .dxi-popover-note:focus-visible,
+.dxi-popover:not(.dxi-popover-pointer) .dxi-popover-row:focus-visible {
 	background-color: var(--text-selection);
 	outline: 2px solid var(--background-modifier-border-focus);
 	outline-offset: -2px;
+}
+
+.dxi-popover-pointer :focus-visible {
+	outline: none;
 }
 
 .dxi-popover-context {

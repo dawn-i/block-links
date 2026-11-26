@@ -12,7 +12,7 @@ export default class BlockLinksPlugin extends Plugin {
     this.index = new LinkIndex(this.app);
 
     this.registerEditorExtension(
-      badgeExtension(this.index, (t) => this.openFor(t))
+      badgeExtension(this.index, (t) => this.openFor(t, true))
     );
 
     this.addCommand({
@@ -78,12 +78,13 @@ export default class BlockLinksPlugin extends Plugin {
     this.openFor({ view: cm, anchor, line, kind: target.kind, refs, title: target.title });
   }
 
-  private openFor(t: BadgeTarget) {
+  private openFor(t: BadgeTarget, pointer = false) {
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     showPopover(this.app, {
       anchor: t.anchor,
       title: t.title,
       refs: t.refs,
+      pointer,
       onRename: () => {
         if (!view || !(view.file instanceof TFile)) {
           new Notice("Open the note in the editor first.");
