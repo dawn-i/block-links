@@ -71,14 +71,6 @@
 	/* row-gap: calc(0.5 * var(--dxi-popover-spacing)); */
 }
 
-.dxi-popover-group:is([open]) .dxi-popover-note:not(:hover) {
-	/* background-color: var(--nav-item-background-hover); */
-}
-
-.dxi-popover-group:not([open]) .dxi-popover-chevron {
-	transform: rotate(-90deg);
-}
-
 .dxi-popover-group:not([open]) .dxi-popover-note {
 	border-bottom-left-radius: var(--dxi-popover-radius);
 	border-bottom-right-radius: var(--dxi-popover-radius);
@@ -101,6 +93,10 @@
 .dxi-popover-note:hover {
 	background-color: var(--text-selection);
 	color: var(--nav-item-color-hover);
+}
+
+.dxi-popover-group:not([open]) .dxi-popover-chevron {
+	transform: rotate(-90deg);
 }
 
 .dxi-popover-chevron {
@@ -137,6 +133,13 @@
 
 .dxi-popover-row:hover {
 	background-color: var(--text-selection);
+}
+
+.dxi-popover-note:focus-visible,
+.dxi-popover-row:focus-visible {
+	background-color: var(--text-selection);
+	outline: 2px solid var(--background-modifier-border-focus);
+	outline-offset: -2px;
 }
 
 .dxi-popover-context {

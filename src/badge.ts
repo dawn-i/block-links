@@ -25,6 +25,19 @@ export interface BadgeTarget {
 const HEADING_RE = /^ {0,3}#{1,6}\s+\S/;
 const BLOCK_ID_RE = /(?:^|\s)\^([A-Za-z0-9-]+)\s*$/;
 
+/** Classifies a line as a heading or a block-ID line (the lines that can have a badge), or null. */
+export function lineTarget(
+  text: string,
+  idx: number
+): { kind: "heading" | "block"; key: string; title: string } | null {
+  if (HEADING_RE.test(text)) {
+    return { kind: "heading", key: headingKey(idx), title: text.replace(/^\s*#{1,6}\s+/, "").trim() };
+  }
+  const bm = BLOCK_ID_RE.exec(text);
+  if (bm) return { kind: "block", key: blockKey(bm[1]), title: text.replace(/^\s*#{1,6}\s+/, "").trim() };
+  return null;
+}
+
 class BadgeWidget extends WidgetType {
   constructor(
     private count: number,
@@ -104,22 +117,13 @@ export function badgeExtension(
             const line = doc.line(n);
             const idx = n - 1;
 
-            let kind: "heading" | "block" | null = null;
-            let key = "";
-            const bm = BLOCK_ID_RE.exec(line.text);
-            if (HEADING_RE.test(line.text)) {
-              kind = "heading";
-              key = headingKey(idx);
-            } else if (bm) {
-              kind = "block";
-              key = blockKey(bm[1]);
-            }
-            if (!kind) continue;
+            const target = lineTarget(line.text, idx);
+            if (!target) continue;
+            const { kind, key, title } = target;
 
             const refs = refsByKey.get(key);
             if (!refs || refs.length === 0) continue;
 
-            const title = line.text.replace(/^\s*#{1,6}\s+/, "").trim();
             const k = kind;
             builder.add(
               line.to,

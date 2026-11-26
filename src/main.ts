@@ -1,6 +1,6 @@
-import { MarkdownView, Notice, Plugin, TFile, debounce } from "obsidian";
+import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin, TFile, debounce } from "obsidian";
 import { EditorView } from "@codemirror/view";
-import { BadgeTarget, badgeExtension, refreshEffect } from "./badge";
+import { BadgeTarget, badgeExtension, lineTarget, refreshEffect } from "./badge";
 import { LinkIndex } from "./linkIndex";
 import { showPopover } from "./popover";
 import { openNativeRename } from "./rename";
@@ -14,6 +14,12 @@ export default class BlockLinksPlugin extends Plugin {
     this.registerEditorExtension(
       badgeExtension(this.index, (t) => this.openFor(t))
     );
+
+    this.addCommand({
+      id: "show-incoming-links",
+      name: "Show incoming links under cursor",
+      editorCallback: (editor, ctx) => this.showUnderCursor(editor, ctx),
+    });
 
     const refresh = debounce(() => this.refreshEditors(), 150, true);
     const rebuild = debounce(() => {
@@ -53,6 +59,23 @@ export default class BlockLinksPlugin extends Plugin {
       const cm = (leaf.view.editor as unknown as { cm?: EditorView }).cm;
       cm?.dispatch({ effects: refreshEffect.of(null) });
     });
+  }
+
+  private showUnderCursor(editor: Editor, ctx: MarkdownView | MarkdownFileInfo) {
+    const cm = (editor as unknown as { cm?: EditorView }).cm;
+    const line = editor.getCursor().line;
+    const target = lineTarget(editor.getLine(line), line);
+    const refs = ctx.file instanceof TFile && target ? this.index.refsFor(ctx.file).get(target.key) : undefined;
+    if (!cm || !target || !refs || refs.length === 0) {
+      new Notice("No incoming links under the cursor.");
+      return;
+    }
+
+    // Anchor the popover to the line's badge; fall back to the line, then the editor.
+    const node = cm.domAtPos(cm.state.doc.line(line + 1).from).node;
+    const lineEl = (node instanceof Element ? node : node.parentElement)?.closest<HTMLElement>(".cm-line");
+    const anchor = lineEl?.querySelector<HTMLElement>(".dxi-badge") ?? lineEl ?? cm.dom;
+    this.openFor({ view: cm, anchor, line, kind: target.kind, refs, title: target.title });
   }
 
   private openFor(t: BadgeTarget) {

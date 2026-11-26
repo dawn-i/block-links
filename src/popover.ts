@@ -22,8 +22,14 @@ export function closePopover() {
 export async function showPopover(app: App, opts: PopoverOptions) {
   closePopover();
 
+  // Keyboard focus moves into the popover; Escape puts it back where it was.
+  const returnTo = document.activeElement as HTMLElement | null;
+
   const el = document.createElement("div");
   el.className = "dxi-popover";
+  el.tabIndex = -1;
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-label", "Incoming links");
 
   const header = el.createDiv({ cls: "dxi-popover-header" });
   header.createSpan({
@@ -67,6 +73,8 @@ export async function showPopover(app: App, opts: PopoverOptions) {
 
     for (const ref of refs) {
       const row = group.createDiv({ cls: "dxi-popover-row" });
+      row.tabIndex = 0;
+      row.setAttribute("role", "link");
       const isFrontmatter = ref.frontmatterKey !== undefined;
       const ctx = row.createDiv({
         cls: "dxi-popover-context",
@@ -97,11 +105,60 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   el.style.top = `${rect.bottom + window.scrollY + 4}px`;
   el.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
 
+  // Arrow keys move between the Rename button, note headers and links. Left and right collapse and expand a note's group; Home jumps to the first note and End to the last link. Enter and Space follow a link; Tab works too.
+  const items = () =>
+    Array.from(
+      el.querySelectorAll<HTMLElement>(".dxi-popover-rename, summary, details[open] > .dxi-popover-row")
+    );
+  el.addEventListener("keydown", (e) => {
+    const target = e.target as HTMLElement;
+    const all = items();
+    const i = all.indexOf(target);
+    const isRow = target.classList.contains("dxi-popover-row");
+    const isSummary = target.tagName === "SUMMARY";
+    let next: HTMLElement | undefined;
+    switch (e.key) {
+      case "ArrowDown":
+        next = all[Math.min(i + 1, all.length - 1)];
+        break;
+      case "ArrowUp":
+        next = all[Math.max(i - 1, 0)];
+        break;
+      case "Home":
+        next = el.querySelector<HTMLElement>("summary") ?? all[0];
+        break;
+      case "End":
+        next = all[all.length - 1];
+        break;
+      case "ArrowRight":
+        if (!isSummary) return;
+        (target.parentElement as HTMLDetailsElement).open = true;
+        break;
+      case "ArrowLeft":
+        if (isSummary) (target.parentElement as HTMLDetailsElement).open = false;
+        else if (isRow) next = target.parentElement?.querySelector<HTMLElement>("summary") ?? undefined;
+        else return;
+        break;
+      case "Enter":
+      case " ":
+        if (!isRow) return;
+        target.click();
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    next?.focus();
+  });
+  (el.querySelector<HTMLElement>("summary") ?? el).focus();
+
   const onDown = (e: MouseEvent) => {
     if (!el.contains(e.target as Node)) closePopover();
   };
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") closePopover();
+    if (e.key !== "Escape") return;
+    closePopover();
+    returnTo?.focus();
   };
   // Defer so the click that opened the popover doesn't close it.
   setTimeout(() => {
