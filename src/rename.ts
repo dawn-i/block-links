@@ -7,7 +7,7 @@ import { Editor, MarkdownView, Menu, Notice } from "obsidian";
  
  The "Rename" item is added to the `editor-menu` workspace event when the cursor is on the heading line or inside the block ID. Method: move the cursor, build a menu that doesn't get shown, trigger the event, and invoke the item's callback. Each step is guarded and falls back to a notice.
  */
-export function openNativeRename(
+export function openRenameDialog(
   view: MarkdownView,
   line: number,
   kind: "heading" | "block"
@@ -18,6 +18,7 @@ export function openNativeRename(
   // Heading: anywhere on the line. Block ID: inside the `^id` text.
   const ch = kind === "heading" ? text.length : Math.max(0, text.length - 2);
   editor.setCursor({ line, ch });
+  editor.focus();
 
   const menu = new Menu();
   view.app.workspace.trigger("editor-menu", menu, editor, view);

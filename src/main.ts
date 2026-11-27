@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { BadgeTarget, badgeExtension, lineTarget, refreshEffect, refsForTarget } from "./badge";
 import { LinkIndex } from "./linkIndex";
 import { showPopover } from "./popover";
-import { openNativeRename } from "./rename";
+import { openRenameDialog } from "./rename";
 
 export default class BlockLinksPlugin extends Plugin {
   index!: LinkIndex;
@@ -86,19 +86,39 @@ export default class BlockLinksPlugin extends Plugin {
         new Notice("Open the note in the editor first.");
         return;
       }
-      openNativeRename(view, t.line, kind);
+      openRenameDialog(view, t.line, kind);
     };
 
-    // Offer the rename dialogs for the the line's incoming link types: heading and/or block ID.
-    const viaId = t.refs.some((r) => r.viaBlock);
-    const viaHeading = t.refs.some((r) => !r.viaBlock);
+    // Offer the rename dialogs according to the line's incoming-link types: heading and/or block ID.
+    const idCount = t.refs.filter((r) => r.viaBlock).length;
+    const headingCount = t.refs.length - idCount;
+    const viaId = idCount > 0;
+    const viaHeading = t.kind === "heading" && headingCount > 0;
+    const plural = (n: number) => `${n} link${n === 1 ? "" : "s"}`;
+
+    // Warn what the rename kind leaves behind.
+    const warn = (text: string) => () => new Notice(text, 8000);
+    const hintHeading = warn(`${plural(idCount)} will break if you change the ^block-ID text at the end of this heading.\n\nBlock links do not update when renaming a heading.`);
+    const hintId = warn(`${plural(headingCount)} will break if you rename this block ID.\n\nHeading links do not update when renaming a block ID.`);
     const renames =
       t.kind === "block" || (viaId && !viaHeading)
         ? [{ label: "Rename block ID...", run: rename("block") }]
         : viaId
           ? [
-              { label: "Rename heading...", run: rename("heading") },
-              { label: "Rename block ID...", run: rename("block") },
+              {
+                label: "Rename heading...",
+                run: () => {
+                  hintHeading();
+                  rename("heading")();
+                },
+              },
+              {
+                label: "Rename block ID...",
+                run: () => {
+                  hintId();
+                  rename("block")();
+                },
+              },
             ]
           : [{ label: "Rename heading...", run: rename("heading") }];
 

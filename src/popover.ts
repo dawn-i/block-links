@@ -5,11 +5,11 @@ export interface PopoverOptions {
   anchor: HTMLElement;
   title: string;
   refs: IncomingRef[];
-  /** The note the popover opened from; to list its links in "This note", the first note group. */
+  /** The note the popover opened from; for including in this-note group. */
   currentPath?: string;
-  /** Opened by a mouse click; to hide the keyboard focus highlight until a key is pressed. */
+  /** Opened by a mouse click; for hiding the keyboard focus-highlight until a key is pressed. */
   pointer?: boolean;
-  /** The rename actions on offer; to run the appropriate dialog for one, or open a menu to select from two. */
+  /** The available rename kinds; for running the appropriate dialog or opening a menu to select from. */
   renames: RenameChoice[];
 }
 
@@ -28,7 +28,7 @@ export function closePopover() {
   current = null;
 }
 
-/** Click-to-open popover: incoming links with a line of context, and Rename. */
+/** Click-to-open popover. */
 export async function showPopover(app: App, opts: PopoverOptions) {
   closePopover();
 
@@ -40,11 +40,12 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   el.tabIndex = -1;
   if (opts.pointer) el.classList.add("dxi-popover-pointer");
   el.setAttribute("role", "dialog");
-  el.setAttribute("aria-label", "Incoming links");
+  el.setAttribute("aria-labelledby", "dxi-popover-title");
 
   const header = el.createDiv({ cls: "dxi-popover-header" });
   header.createSpan({
     cls: "dxi-popover-title",
+    attr: { id: "dxi-popover-title" },
     text: `${opts.refs.length} link${opts.refs.length === 1 ? "" : "s"}`,
   });
   if (opts.renames.length > 0) {
@@ -97,7 +98,9 @@ export async function showPopover(app: App, opts: PopoverOptions) {
     refs.sort((a, b) => a.line - b.line || a.col - b.col);
 
     const current = isCurrent(file.path);
-    const group = list.createEl("details", { cls: "dxi-popover-group" });
+    const group = list.createEl("details", {
+      cls: "dxi-popover-group" + (current ? " dxi-popover-group-current" : ""),
+    });
     group.open = true;
     const summary = group.createEl("summary", { cls: "dxi-popover-note" });
     setIcon(summary.createSpan({ cls: "dxi-popover-chevron" }), "chevron-down");
@@ -110,7 +113,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       row.setAttribute("role", "link");
       const isFrontmatter = ref.frontmatterKey !== undefined;
 
-      // Tags for links to a heading's block ID, embedded, and/or in a property.
+      // Link tags to identify links to a heading's block ID, embedded links, and links in properties.
       const tags: Array<[text: string, kind: string, hint: string]> = [];
       if (ref.viaBlock) tags.push([ref.viaBlock, "block", `Links to the block ID ${ref.viaBlock}`]);
       if (ref.embed) tags.push(["embed", "embed", "Embedded"]);
@@ -128,7 +131,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       });
       const follow = (e: MouseEvent | KeyboardEvent) => {
         closePopover();
-        // Same as Obsidian's modifier-key rules when opening links: Ctrl new tab, Ctrl+Alt split, Ctrl+Alt+Shift new window, middle click new tab.
+        // Same as Obsidian's modifier-key rules for opening links: Ctrl new tab, Ctrl+Alt split, Ctrl+Alt+Shift new window, middle click new tab.
         app.workspace
           .getLeaf(Keymap.isModEvent(e))
           .openFile(file, isFrontmatter ? undefined : { eState: { line: ref.line } });

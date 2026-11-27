@@ -27,7 +27,7 @@ const BLOCK_ID_RE = /(?:^|\s)\^([A-Za-z0-9-]+)\s*$/;
 
 export interface LineTarget {
   kind: "heading" | "block";
-  /** Index key for the line itself; see headingKey/blockKey. */
+  /** Index key for the line itself. See headingKey/blockKey. */
   key: string;
   /** The line's block ID, if it has one. */
   blockId?: string;
@@ -43,7 +43,7 @@ export function lineTarget(text: string, idx: number): LineTarget | null {
     const title = (bm ? full.replace(BLOCK_ID_RE, "").trim() : full) || full;
     return { kind: "heading", key: headingKey(idx), blockId: bm?.[1], title };
   }
-  // A block's title is a caret and block ID, without additional line text.
+  // A block's title is a caret and block ID, without any preceding line text.
   if (bm) return { kind: "block", key: blockKey(bm[1]), blockId: bm[1], title: `^${bm[1]}` };
   return null;
 }
@@ -86,7 +86,11 @@ class BadgeWidget extends WidgetType {
 
   toDOM(view: EditorView) {
     const el = document.createElement("span");
-    el.className = `dxi-badge dxi-badge-${this.kind}` + (this.active ? " dxi-badge-active" : "");
+    const split = this.viaBlock > 0 && this.viaBlock < this.count;
+    el.className =
+      `dxi-badge dxi-badge-${this.kind}` +
+      (split ? " dxi-badge-split" : "") +
+      (this.active ? " dxi-badge-active" : "");
     let label = `${this.count} incoming link${this.count === 1 ? "" : "s"}`;
     if (this.viaBlock > 0 && this.viaBlock < this.count) {
       label += `: ${this.count - this.viaBlock} to heading, ${this.viaBlock} to block ID`;
