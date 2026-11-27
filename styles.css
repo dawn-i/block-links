@@ -53,8 +53,8 @@
 }
 
 .dxi-popover-rename {
-	/* border-radius: var(--button-radius); */
-	border-radius: var(--dxi-popover-radius);
+	/* border-radius: var(--dxi-popover-radius); */
+	border-radius: var(--button-radius);
 }
 
 .dxi-popover-subtitle {
@@ -150,4 +150,20 @@
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	word-break: break-word;
+}
+
+.dxi-popover-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+	margin-bottom: var(--size-2-1);
+}
+
+.dxi-popover-tag {
+	border: var(--border-width) var(--background-modifier-border) solid;
+	border-radius: var(--radius-s);
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.3;
+	padding: 0 var(--size-2-3);
 }

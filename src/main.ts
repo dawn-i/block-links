@@ -1,6 +1,6 @@
 import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin, TFile, debounce } from "obsidian";
 import { EditorView } from "@codemirror/view";
-import { BadgeTarget, badgeExtension, lineTarget, refreshEffect } from "./badge";
+import { BadgeTarget, badgeExtension, lineTarget, refreshEffect, refsForTarget } from "./badge";
 import { LinkIndex } from "./linkIndex";
 import { showPopover } from "./popover";
 import { openNativeRename } from "./rename";
@@ -65,8 +65,9 @@ export default class BlockLinksPlugin extends Plugin {
     const cm = (editor as unknown as { cm?: EditorView }).cm;
     const line = editor.getCursor().line;
     const target = lineTarget(editor.getLine(line), line);
-    const refs = ctx.file instanceof TFile && target ? this.index.refsFor(ctx.file).get(target.key) : undefined;
-    if (!cm || !target || !refs || refs.length === 0) {
+    const refs =
+      ctx.file instanceof TFile && target ? refsForTarget(this.index.refsFor(ctx.file), target) : [];
+    if (!cm || !target || refs.length === 0) {
       new Notice("No incoming links under the cursor.");
       return;
     }
@@ -80,18 +81,34 @@ export default class BlockLinksPlugin extends Plugin {
 
   private openFor(t: BadgeTarget, pointer = false) {
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const rename = (kind: "heading" | "block") => () => {
+      if (!view || !(view.file instanceof TFile)) {
+        new Notice("Open the note in the editor first.");
+        return;
+      }
+      openNativeRename(view, t.line, kind);
+    };
+
+    // Offer the rename dialogs for the the line's incoming link types: heading and/or block ID.
+    const viaId = t.refs.some((r) => r.viaBlock);
+    const viaHeading = t.refs.some((r) => !r.viaBlock);
+    const renames =
+      t.kind === "block" || (viaId && !viaHeading)
+        ? [{ label: "Rename block ID...", run: rename("block") }]
+        : viaId
+          ? [
+              { label: "Rename heading...", run: rename("heading") },
+              { label: "Rename block ID...", run: rename("block") },
+            ]
+          : [{ label: "Rename heading...", run: rename("heading") }];
+
     showPopover(this.app, {
       anchor: t.anchor,
       title: t.title,
       refs: t.refs,
+      currentPath: view?.file?.path,
       pointer,
-      onRename: () => {
-        if (!view || !(view.file instanceof TFile)) {
-          new Notice("Open the note in the editor first.");
-          return;
-        }
-        openNativeRename(view, t.line, t.kind);
-      },
+      renames,
     });
   }
 }

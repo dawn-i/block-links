@@ -1,13 +1,21 @@
-import { App, Keymap, Scope, TFile, setIcon } from "obsidian";
+import { App, Keymap, Menu, Scope, TFile, setIcon } from "obsidian";
 import { IncomingRef } from "./linkIndex";
 
 export interface PopoverOptions {
   anchor: HTMLElement;
   title: string;
   refs: IncomingRef[];
-  /** Opened by a mouse click: hide the keyboard focus highlight until a key is pressed. */
+  /** The note the popover opened from; to list its links in "This note", the first note group. */
+  currentPath?: string;
+  /** Opened by a mouse click; to hide the keyboard focus highlight until a key is pressed. */
   pointer?: boolean;
-  onRename: () => void;
+  /** The rename actions on offer; to run the appropriate dialog for one, or open a menu to select from two. */
+  renames: RenameChoice[];
+}
+
+export interface RenameChoice {
+  label: string;
+  run: () => void;
 }
 
 let current: HTMLElement | null = null;
@@ -20,11 +28,11 @@ export function closePopover() {
   current = null;
 }
 
-/** Click-to-open popover: incoming links with a line of context, plus Rename. */
+/** Click-to-open popover: incoming links with a line of context, and Rename. */
 export async function showPopover(app: App, opts: PopoverOptions) {
   closePopover();
 
-  // Keyboard focus moves into the popover; Escape puts it back where it was.
+  // Keyboard focus moves into the popover; Escape returns focus to where it was.
   const returnTo = document.activeElement as HTMLElement | null;
 
   const el = document.createElement("div");
@@ -37,19 +45,35 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   const header = el.createDiv({ cls: "dxi-popover-header" });
   header.createSpan({
     cls: "dxi-popover-title",
-    text: `${opts.refs.length} incoming link${opts.refs.length === 1 ? "" : "s"}`,
+    text: `${opts.refs.length} link${opts.refs.length === 1 ? "" : "s"}`,
   });
-  const rename = header.createEl("button", { cls: "dxi-popover-rename", text: "Rename..." });
-  rename.addEventListener("click", () => {
-    closePopover();
-    opts.onRename();
-  });
+  if (opts.renames.length > 0) {
+    const rename = header.createEl("button", { cls: "dxi-popover-rename", text: "Rename..." });
+    rename.addEventListener("click", () => {
+      if (opts.renames.length === 1) {
+        closePopover();
+        opts.renames[0].run();
+        return;
+      }
+      const menu = new Menu();
+      for (const choice of opts.renames) {
+        menu.addItem((item) =>
+          item.setTitle(choice.label).onClick(() => {
+            closePopover();
+            choice.run();
+          })
+        );
+      }
+      const rect = rename.getBoundingClientRect();
+      menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    });
+  }
 
   el.createDiv({ cls: "dxi-popover-subtitle", text: opts.title });
 
   const list = el.createDiv({ cls: "dxi-popover-list" });
 
-  // Group by source note. Notes sort alphabetically by name; links sort by position in the note, with frontmatter links first.
+  // Group by source note. Notes sort alphabetically by name, but with the current note first. Links sort by position in the note, with frontmatter links first.
   const groups = new Map<string, { file: TFile; refs: IncomingRef[] }>();
   for (const ref of opts.refs) {
     const file = app.vault.getAbstractFileByPath(ref.sourcePath);
@@ -58,23 +82,26 @@ export async function showPopover(app: App, opts: PopoverOptions) {
     group.refs.push(ref);
     groups.set(file.path, group);
   }
+  const isCurrent = (path: string) => path === opts.currentPath;
   const sorted = [...groups.values()].sort(
     (a, b) =>
+      Number(isCurrent(b.file.path)) - Number(isCurrent(a.file.path)) ||
       a.file.basename.localeCompare(b.file.basename, undefined, { sensitivity: "base", numeric: true }) ||
       a.file.path.localeCompare(b.file.path)
   );
 
-  // Each row's follow action, so Enter can pass along its modifier keys just like a click does.
+  // Each row's follow action, so Enter can pass along modifier keys the way a click would.
   const followers = new Map<HTMLElement, (e: MouseEvent | KeyboardEvent) => void>();
 
   for (const { file, refs } of sorted) {
     refs.sort((a, b) => a.line - b.line || a.col - b.col);
 
+    const current = isCurrent(file.path);
     const group = list.createEl("details", { cls: "dxi-popover-group" });
     group.open = true;
     const summary = group.createEl("summary", { cls: "dxi-popover-note" });
     setIcon(summary.createSpan({ cls: "dxi-popover-chevron" }), "chevron-down");
-    summary.createSpan({ cls: "dxi-popover-name", text: file.basename });
+    summary.createSpan({ cls: "dxi-popover-name", text: current ? "This note" : file.basename });
     summary.createSpan({ cls: "dxi-popover-count", text: String(refs.length) });
 
     for (const ref of refs) {
@@ -82,6 +109,19 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       row.tabIndex = 0;
       row.setAttribute("role", "link");
       const isFrontmatter = ref.frontmatterKey !== undefined;
+
+      // Tags for links to a heading's block ID, embedded, and/or in a property.
+      const tags: Array<[text: string, kind: string, hint: string]> = [];
+      if (ref.viaBlock) tags.push([ref.viaBlock, "block", `Links to the block ID ${ref.viaBlock}`]);
+      if (ref.embed) tags.push(["embed", "embed", "Embedded"]);
+      if (isFrontmatter) tags.push(["property", "property", `Property: ${ref.frontmatterKey}`]);
+      if (tags.length > 0) {
+        const tagsEl = row.createDiv({ cls: "dxi-popover-tags" });
+        for (const [text, kind, hint] of tags) {
+          tagsEl.createSpan({ cls: `dxi-popover-tag dxi-popover-tag-${kind}`, text, attr: { title: hint } });
+        }
+      }
+
       const ctx = row.createDiv({
         cls: "dxi-popover-context",
         text: isFrontmatter ? `${ref.frontmatterKey}: ${ref.original}` : ref.original,
@@ -122,7 +162,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   el.style.top = `${rect.bottom + window.scrollY + 4}px`;
   el.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
 
-  // Up and down arrows navigate among the Rename button, notes, and links; so do Tab and Shift+Tab. Left and right arrows collapse and expand notes; Home goes to first note; End goes to last link. Enter and Space select.
+  // Up and down arrows, Tab, and Shift+Tab navigate among the Rename button, notes, and links. Left and right arrows collapse and expand notes. Home goes to the first note. End goes to the last link. Enter and Space select.
   const items = () =>
     Array.from(
       el.querySelectorAll<HTMLElement>(".dxi-popover-rename, summary, details[open] > .dxi-popover-inlink")
@@ -173,7 +213,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   });
   (el.querySelector<HTMLElement>("summary") ?? el).focus();
 
-  // Push a `Scope` (imitating Obsidian's modals) to allow the popover to act on Ctrl+Enter and Ctrl+Alt+Enter, otherwise Obsidian swallows the hotkeys before the popover sees them.
+  // Push a `Scope`, imitating Obsidian's modals, to allow the popover to act on Ctrl+Enter and Ctrl+Alt+Enter, otherwise Obsidian swallows the hotkeys before the popover sees them.
   const scope = new Scope(app.scope);
   const followFocused = (e: KeyboardEvent) => {
     const follow = followers.get(document.activeElement as HTMLElement);

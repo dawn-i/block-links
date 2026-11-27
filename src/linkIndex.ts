@@ -1,16 +1,20 @@
 import { App, TFile, parseLinktext, resolveSubpath } from "obsidian";
 
-/** One incoming link to a heading or block, as shown in the popover. */
+/** One incoming link to a heading or block, shown in the popover. */
 export interface IncomingRef {
   sourcePath: string;
-  /** 0-based line in the source file (0 for frontmatter links). */
+  /** 0-based line in the source file, with 0 for frontmatter links. */
   line: number;
   /** 0-based column in the source line, to order links that share a line. */
   col: number;
-  /** The link text as written, e.g. `[[note#heading]]`. */
+  /** The link source text, e.g. `lorem [[note#heading]] ipsum`. */
   original: string;
-  /** Set when the link lives in a frontmatter property (its name). */
+  /** Set the frontmatter property name when the link is in the property. */
   frontmatterKey?: string;
+  /** Set when the link is an embed, `![[note]]`. */
+  embed?: boolean;
+  /** Set the ID, as `^id`, when the link points at a heading through the block ID on its line. */
+  viaBlock?: string;
 }
 
 interface RawLink {
@@ -21,6 +25,7 @@ interface RawLink {
   col: number;
   original: string;
   frontmatterKey?: string;
+  embed?: boolean;
 }
 
 export const headingKey = (line: number) => `h:${line}`;
@@ -29,7 +34,7 @@ export const blockKey = (id: string) => `b:${id.toLowerCase()}`;
 /**
   Reverse index of links that point at a heading or block.
   
-  Raw links are stored per source file. Subpaths are resolved lazily against the *target's* current metadata with Obsidian's own `resolveSubpath`, so the matching rules (case, punctuation, duplicate headings -> first one wins) are Obsidian's, not ours. Results are keyed by the heading's line or the block's id, never by heading text.
+  Raw links are stored per source file. Subpaths are resolved lazily against the *target's* current metadata with Obsidian's `resolveSubpath`, using the matching rules: case, punctuation, duplicate headings--first one wins. Results are keyed by the heading's line or the block's id, not by heading text.
  */
 export class LinkIndex {
   /** Bumped on any change; consumers use it to know when to repaint. */
@@ -60,7 +65,7 @@ export class LinkIndex {
     this.rev++;
   }
 
-  /** key (see headingKey/blockKey) -> incoming refs, for one target file. */
+  /** key as headingKey or blockKey, for incoming refs to one target file. */
   refsFor(target: TFile): Map<string, IncomingRef[]> {
     const hit = this.memo.get(target.path);
     if (hit && hit.rev === this.rev) return hit.refs;
@@ -84,6 +89,7 @@ export class LinkIndex {
             col: rl.col,
             original: rl.original,
             frontmatterKey: rl.frontmatterKey,
+            embed: rl.embed,
           });
           refs.set(key, list);
         }
@@ -98,18 +104,28 @@ export class LinkIndex {
     if (!cache) return;
 
     const found: RawLink[] = [];
-    const add = (link: string, original: string, line: number, col: number, frontmatterKey?: string) => {
+    const add = (
+      link: string,
+      original: string,
+      line: number,
+      col: number,
+      frontmatterKey?: string,
+      embed?: boolean
+    ) => {
       const { path, subpath } = parseLinktext(link);
-      if (!subpath) return; // plain note link, not a heading/block link
+      if (!subpath) return; // plain link, not a heading or block link
       const target = path
         ? this.app.metadataCache.getFirstLinkpathDest(path, file.path)
-        : file; // `[[#heading]]` -> this note
+        : file; // `[[#heading]]` link to this note
       if (!target) return;
-      found.push({ targetPath: target.path, subpath, line, col, original, frontmatterKey });
+      found.push({ targetPath: target.path, subpath, line, col, original, frontmatterKey, embed });
     };
 
-    for (const l of [...(cache.links ?? []), ...(cache.embeds ?? [])]) {
+    for (const l of cache.links ?? []) {
       add(l.link, l.original, l.position.start.line, l.position.start.col);
+    }
+    for (const l of cache.embeds ?? []) {
+      add(l.link, l.original, l.position.start.line, l.position.start.col, undefined, true);
     }
     for (const l of cache.frontmatterLinks ?? []) {
       add(l.link, l.original, 0, 0, l.key);

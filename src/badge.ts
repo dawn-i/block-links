@@ -25,23 +25,45 @@ export interface BadgeTarget {
 const HEADING_RE = /^ {0,3}#{1,6}\s+\S/;
 const BLOCK_ID_RE = /(?:^|\s)\^([A-Za-z0-9-]+)\s*$/;
 
-/** Classifies a line as a heading or a block-ID line (the lines that can have a badge), or null. */
-export function lineTarget(
-  text: string,
-  idx: number
-): { kind: "heading" | "block"; key: string; title: string } | null {
-  if (HEADING_RE.test(text)) {
-    return { kind: "heading", key: headingKey(idx), title: text.replace(/^\s*#{1,6}\s+/, "").trim() };
-  }
+export interface LineTarget {
+  kind: "heading" | "block";
+  /** Index key for the line itself; see headingKey/blockKey. */
+  key: string;
+  /** The line's block ID, if it has one. */
+  blockId?: string;
+  title: string;
+}
+
+/** Classifies a line as a heading, a block-ID line, or null (won't have a badge). */
+export function lineTarget(text: string, idx: number): LineTarget | null {
   const bm = BLOCK_ID_RE.exec(text);
-  // A block's title is a caret and block ID, no additional line text.
-  if (bm) return { kind: "block", key: blockKey(bm[1]), title: `^${bm[1]}` };
+  if (HEADING_RE.test(text)) {
+    const full = text.replace(/^\s*#{1,6}\s+/, "").trim();
+    // A heading's title is its name, without any block ID.
+    const title = (bm ? full.replace(BLOCK_ID_RE, "").trim() : full) || full;
+    return { kind: "heading", key: headingKey(idx), blockId: bm?.[1], title };
+  }
+  // A block's title is a caret and block ID, without additional line text.
+  if (bm) return { kind: "block", key: blockKey(bm[1]), blockId: bm[1], title: `^${bm[1]}` };
   return null;
+}
+
+/**
+  All incoming links for a line's badge. A link to a heading's block ID is marked with `viaBlock` so the popover can tell it from a link to the heading.
+ */
+export function refsForTarget(byKey: Map<string, IncomingRef[]>, t: LineTarget): IncomingRef[] {
+  const own = byKey.get(t.key) ?? [];
+  if (t.kind !== "heading" || !t.blockId) return own;
+  const viaBlock = `^${t.blockId}`;
+  const viaId = (byKey.get(blockKey(t.blockId)) ?? []).map((r) => ({ ...r, viaBlock }));
+  return [...own, ...viaId];
 }
 
 class BadgeWidget extends WidgetType {
   constructor(
     private count: number,
+    /** How many of a heading's `count` link to the block ID rather than to the heading section. */
+    private viaBlock: number,
     private active: boolean,
     private line: number,
     private kind: "heading" | "block",
@@ -54,7 +76,9 @@ class BadgeWidget extends WidgetType {
   eq(other: BadgeWidget) {
     return (
       other.count === this.count &&
+      other.viaBlock === this.viaBlock &&
       other.active === this.active &&
+      other.kind === this.kind &&
       other.key === this.key &&
       other.line === this.line
     );
@@ -62,8 +86,12 @@ class BadgeWidget extends WidgetType {
 
   toDOM(view: EditorView) {
     const el = document.createElement("span");
-    el.className = "dxi-badge" + (this.active ? " dxi-badge-active" : "");
-    el.setAttribute("aria-label", `${this.count} incoming link${this.count === 1 ? "" : "s"}`);
+    el.className = `dxi-badge dxi-badge-${this.kind}` + (this.active ? " dxi-badge-active" : "");
+    let label = `${this.count} incoming link${this.count === 1 ? "" : "s"}`;
+    if (this.viaBlock > 0 && this.viaBlock < this.count) {
+      label += `: ${this.count - this.viaBlock} to heading, ${this.viaBlock} to block ID`;
+    }
+    el.setAttribute("aria-label", label);
     el.textContent = `↩ ${this.count}`;
     el.addEventListener("mousedown", (e) => e.preventDefault());
     el.addEventListener("click", (e) => {
@@ -122,8 +150,9 @@ export function badgeExtension(
             if (!target) continue;
             const { kind, key, title } = target;
 
-            const refs = refsByKey.get(key);
-            if (!refs || refs.length === 0) continue;
+            const refs = refsForTarget(refsByKey, target);
+            if (refs.length === 0) continue;
+            const viaBlock = refs.filter((r) => r.viaBlock).length;
 
             const k = kind;
             builder.add(
@@ -131,7 +160,7 @@ export function badgeExtension(
               line.to,
               Decoration.widget({
                 side: 1,
-                widget: new BadgeWidget(refs.length, n === cursorLine, idx, k, key, (el, v) =>
+                widget: new BadgeWidget(refs.length, viaBlock, n === cursorLine, idx, k, key, (el, v) =>
                   open({ view: v, anchor: el, line: idx, kind: k, refs, title })
                 ),
               })
