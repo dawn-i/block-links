@@ -34,7 +34,8 @@ export function lineTarget(
     return { kind: "heading", key: headingKey(idx), title: text.replace(/^\s*#{1,6}\s+/, "").trim() };
   }
   const bm = BLOCK_ID_RE.exec(text);
-  if (bm) return { kind: "block", key: blockKey(bm[1]), title: text.replace(/^\s*#{1,6}\s+/, "").trim() };
+  // A block's title is a caret and block ID, no additional line text.
+  if (bm) return { kind: "block", key: blockKey(bm[1]), title: `^${bm[1]}` };
   return null;
 }
 
