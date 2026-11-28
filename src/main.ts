@@ -15,6 +15,9 @@ export default class BlockLinksPlugin extends Plugin {
       badgeExtension(this.index, (t) => this.openFor(t, true))
     );
 
+    // Registers the plugin as a hover-link source with a require-Ctrl toggle in Settings > Page preview
+    this.registerHoverLinkSource(this.manifest.id, { display: this.manifest.name, defaultMod: true });
+
     this.addCommand({
       id: "show-incoming-links",
       name: "Show incoming links under cursor",
@@ -72,7 +75,7 @@ export default class BlockLinksPlugin extends Plugin {
       return;
     }
 
-    // Anchor the popover to the line's badge; fall back to the line, then the editor.
+    // Anchors the popover to the line's badge; falls back to the line, then the editor.
     const node = cm.domAtPos(cm.state.doc.line(line + 1).from).node;
     const lineEl = (node instanceof Element ? node : node.parentElement)?.closest<HTMLElement>(".cm-line");
     const anchor = lineEl?.querySelector<HTMLElement>(".dxi-badge") ?? lineEl ?? cm.dom;
@@ -89,14 +92,14 @@ export default class BlockLinksPlugin extends Plugin {
       openRenameDialog(view, t.line, kind);
     };
 
-    // Offer the rename dialogs according to the line's incoming-link types: heading and/or block ID.
+    // Offers heading and/or block-ID rename dialogs according to the line's incoming-link types.
     const idCount = t.refs.filter((r) => r.viaBlock).length;
     const headingCount = t.refs.length - idCount;
     const viaId = idCount > 0;
     const viaHeading = t.kind === "heading" && headingCount > 0;
     const plural = (n: number) => `${n} link${n === 1 ? "" : "s"}`;
 
-    // Warn what the rename kind leaves behind.
+    // Warns when rename will leave behind differnt-kind links.
     const warn = (text: string) => () => new Notice(text, 8000);
     const hintHeading = warn(`${plural(idCount)} will break if you change the ^block-ID text at the end of this heading.\n\nBlock links do not update when renaming a heading.`);
     const hintId = warn(`${plural(headingCount)} will break if you rename this block ID.\n\nHeading links do not update when renaming a block ID.`);
@@ -127,6 +130,7 @@ export default class BlockLinksPlugin extends Plugin {
       title: t.title,
       refs: t.refs,
       currentPath: view?.file?.path,
+      hoverSource: this.manifest.id,
       pointer,
       renames,
     });

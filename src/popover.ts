@@ -1,10 +1,12 @@
-import { App, Keymap, Menu, Scope, TFile, setIcon } from "obsidian";
+import { App, HoverParent, Keymap, Menu, Scope, TFile, setIcon } from "obsidian";
 import { IncomingRef } from "./linkIndex";
 
 export interface PopoverOptions {
   anchor: HTMLElement;
   title: string;
   refs: IncomingRef[];
+  /** The registered `hover-link` source; for letting Page preview's per-source settings apply to link rows. */
+  hoverSource?: string;
   /** The note the popover opened from; for including in this-note group. */
   currentPath?: string;
   /** Opened by a mouse click; for hiding the keyboard focus-highlight until a key is pressed. */
@@ -32,8 +34,11 @@ export function closePopover() {
 export async function showPopover(app: App, opts: PopoverOptions) {
   closePopover();
 
-  // Keyboard focus moves into the popover; Escape returns focus to where it was.
+  // Moves keyboard focus into the popover; Escape returns focus where it was.
   const returnTo = document.activeElement as HTMLElement | null;
+
+  // Owns the page preview shown for a hovered link.
+  const hoverParent: HoverParent = { hoverPopover: null };
 
   const el = document.createElement("div");
   el.className = "dxi-popover";
@@ -74,7 +79,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
 
   const list = el.createDiv({ cls: "dxi-popover-list" });
 
-  // Group by source note. Notes sort alphabetically by name, but with the current note first. Links sort by position in the note, with frontmatter links first.
+  // Groups by source note. Notes sort alphabetically by name, but with the current note first. Links sort by position in the note, with frontmatter links first.
   const groups = new Map<string, { file: TFile; refs: IncomingRef[] }>();
   for (const ref of opts.refs) {
     const file = app.vault.getAbstractFileByPath(ref.sourcePath);
@@ -113,7 +118,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
       row.setAttribute("role", "link");
       const isFrontmatter = ref.frontmatterKey !== undefined;
 
-      // Link tags to identify links to a heading's block ID, embedded links, and links in properties.
+      // Tags links that are to a heading's block ID, embedded, and/or in properties.
       const tags: Array<[text: string, kind: string, hint: string]> = [];
       if (ref.viaBlock) tags.push([ref.viaBlock, "block", `Links to the block ID ${ref.viaBlock}`]);
       if (ref.embed) tags.push(["embed", "embed", "Embedded"]);
@@ -137,6 +142,19 @@ export async function showPopover(app: App, opts: PopoverOptions) {
           .openFile(file, isFrontmatter ? undefined : { eState: { line: ref.line } });
       };
       followers.set(row, follow);
+      // Previews the linking note at the link's line, subject to the Page preview require-Ctrl setting.
+      row.addEventListener("mouseover", (event) => {
+        if (!opts.hoverSource) return;
+        app.workspace.trigger("hover-link", {
+          event,
+          source: opts.hoverSource,
+          hoverParent,
+          targetEl: row,
+          linktext: file.path,
+          sourcePath: file.path,
+          state: isFrontmatter ? undefined : { scroll: ref.line },
+        });
+      });
       row.addEventListener("click", follow);
       row.addEventListener("mousedown", (e) => {
         if (e.button === 1) e.preventDefault();
@@ -147,7 +165,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
         follow(e);
       });
 
-      // Fill in the surrounding line asynchronously. Because frontmatter links have no meaningful line, their context is the property name and link text.
+      // Fills in the surrounding line asynchronously. Because frontmatter links have no meaningful line, their context is the property name and link text.
       if (!isFrontmatter) {
         app.vault.cachedRead(file).then((content) => {
           const line = content.split("\n")[ref.line]?.trim();
@@ -216,7 +234,7 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   });
   (el.querySelector<HTMLElement>("summary") ?? el).focus();
 
-  // Push a `Scope`, imitating Obsidian's modals, to allow the popover to act on Ctrl+Enter and Ctrl+Alt+Enter, otherwise Obsidian swallows the hotkeys before the popover sees them.
+  // Pushes a `Scope`, imitating Obsidian's modals, to allow the popover to act on Ctrl+Enter and Ctrl+Alt+Enter, otherwise Obsidian swallows the hotkeys before the popover sees them.
   const scope = new Scope(app.scope);
   const followFocused = (e: KeyboardEvent) => {
     const follow = followers.get(document.activeElement as HTMLElement);
@@ -230,19 +248,23 @@ export async function showPopover(app: App, opts: PopoverOptions) {
   app.keymap.pushScope(scope);
 
   const onDown = (e: MouseEvent) => {
-    if (!el.contains(e.target as Node)) closePopover();
+    const target = e.target as Element;
+    // Makes clicks inside a page preview be not outside clicks.
+    if (!el.contains(target) && !target.closest?.(".hover-popover")) closePopover();
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
     closePopover();
     returnTo?.focus();
   };
-  // Defer so the click that opened the popover doesn't close it.
+  // Defers so the click that opened the popover doesn't close it.
   setTimeout(() => {
     document.addEventListener("mousedown", onDown, true);
     document.addEventListener("keydown", onKey, true);
   }, 0);
   cleanup = () => {
+    // `hide` isn't in the public typings.
+    (hoverParent.hoverPopover as unknown as { hide?: () => void } | null)?.hide?.();
     app.keymap.popScope(scope);
     document.removeEventListener("mousedown", onDown, true);
     document.removeEventListener("keydown", onKey, true);
